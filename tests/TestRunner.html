@@ -1,0 +1,57 @@
+<html>
+<head>
+	<script src="../h265.js" ></script>
+	<script>
+	
+	function Test() {
+		
+	}
+	
+	Test.tests = [];
+
+	Test.assertEquals = function( expected,  actual) {
+		if(expected !== actual) {
+			throw 'Assertion failed, expected ' + expected + ', actual ' + actual;
+		}
+	}
+	
+	Test.add = function(f) {
+		Test.tests.push(f);
+	}
+	
+	Test.run = function() {
+		for(i = 0; i < Test.tests.length; i++) {
+			var str = '<tr>';
+			str += '<td>' + Test.tests[i].name + '</td>';
+			try {
+				Test.tests[i].call();	        
+
+				str += '<td>PASSED</td>';
+			} catch(e) {
+				str += '<td>FAILED: ' + e + '</td>';
+			}
+			str += '</tr>';
+			result.innerHTML += str;
+		}		
+	}
+
+	</script>
+	
+	<link rel="stylesheet" type="text/css" href="tests.css">
+	
+<!-- ADD TESTS HERE -->
+
+	<script src="BitStreamTest.js" ></script>
+	<script src="GolombReaderTest.js" ></script>
+	
+<!-- -->
+	
+</head>
+<body onload="Test.run();">
+	<table>
+		<tbody id="result">
+		<tr><th>Name</th><th>Result</th></tr>
+		</tbody>
+	</table>
+</body>
+</html>

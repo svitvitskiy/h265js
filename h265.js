@@ -26,7 +26,6 @@ function Picture(width, height, data, color) {
 	this._color = color;
 }
 
-
 /**
  * Sequence parameter set
  */
@@ -74,16 +73,34 @@ ByteBuffer.wrap = function(ui8a) {
  *
  */
 
-function BitReader() {
-	
+function BitReader(arrayBuffer) {
+	if(!(arrayBuffer instanceof ArrayBuffer))
+		throw 'IllegalArgument: ArrayBuffer extpected';
+	this.array = new Uint8Array(arrayBuffer);
+	this.arrayPos = 0;
+	this.cur32 = 0;
+	this.deficit = 32;
+	this._readIgnore();
+}
+
+BitReader.prototype._readIgnore = function() {
+	if(this.arrayPos < this.array.length) {
+		this.deficit -= 8;
+		this.cur32 |= (this.array[this.arrayPos++] << this.deficit);
+	}
 }
 
 BitReader.prototype.check16 = function() {
-	
+	if(this.deficit > 16) {
+		this._readIgnore();
+		this._readIgnore();
+	}
+	return this.cur32 >>> 16;
 }
 
 BitReader.prototype.skip = function(n) {
-	
+	this.deficit += n;
+	this.cur32 <<= n;
 }
 
 /**
@@ -91,18 +108,59 @@ BitReader.prototype.skip = function(n) {
  *
  */
 
-var GolombReader {};
-
-GolombReader.readU = function() {
+function GolombReader() {
 	
 }
 
-GolombReader.readS = function() {
-	
+GolombReader.readU = function(bitReader) {
+	var bits = bitReader.check16();
+	var len = (MathUtils.zeros(bits >> 8) << 1) + 1;
+	bitReader.skip(len);
+
+	return ((bits << len) >> 16) - 1;
+}
+
+GolombReader.readS = function(bitReader) {
+	var ue = GolombReader.readU(bitReader);
+	var sign = ((ue & 0x1) << 1) - 1;
+	return ((ue >> 1) + (ue & 0x1)) * sign;
 }
 
 GolombReader.readT = function() {
 	
+}
+
+/**
+ * Math utils
+ */
+function MathUtils() {
+	
+}
+
+MathUtils._ZEROS_LOOKUP_TAB = [
+	8, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
+	3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+];
+
+MathUtils.zeros = function(val) {
+	return MathUtils._ZEROS_LOOKUP_TAB[val & 0xff];
 }
 
 /**
@@ -114,7 +172,7 @@ function MDecoder() {
 	
 }
 
-MDecoder.prototype.readBin(int context) {
+MDecoder.prototype.readBin = function(context) {
 	
 }
 
@@ -347,3 +405,11 @@ CABACReader.prototype.coeff_sign_flag = function() {
 CABACReader.prototype.coeff_abs_level_remaining = function() {
 	
 }
+
+//
+// Constants
+//
+
+var YUV420 = {px: 2, py: 2},
+    YUV422 = {px: 2, py: 1},
+    YUV444 = {px: 1, py: 1};

@@ -1,0 +1,17 @@
+body {
+	font-family: Verdana;
+}
+
+table {
+	border: 1px solid black;
+	width: 100%;
+}
+
+th {
+	background-color: #ddd;
+}
+
+td:nth-child(2) {
+	text-align: center;
+	font-weight: bold;
+}
