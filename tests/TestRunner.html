@@ -20,7 +20,7 @@
 	}
 	
 	Test.run = function() {
-		for(i = 0; i < Test.tests.length; i++) {
+		for(var i = 0; i < Test.tests.length; i++) {
 			var str = '<tr>';
 			str += '<td>' + Test.tests[i].name + '</td>';
 			try {
@@ -43,11 +43,13 @@
 
 	<script src="BitStreamTest.js" ></script>
 	<script src="GolombReaderTest.js" ></script>
+	<script src="PSTest.js" ></script>
 	
 <!-- -->
 	
 </head>
 <body onload="Test.run();">
+	<h1>h265.js test suite</h1>
 	<table>
 		<tbody id="result">
 		<tr><th>Name</th><th>Result</th></tr>

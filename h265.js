@@ -36,6 +36,7 @@ function SPS() {
 
 SPS.read = function(bitReader) {
 	
+	
 }
 
 /**
@@ -46,8 +47,114 @@ function PPS() {
 	
 }
 
-PPS.read = function(bitReader) {
+PPS.readScalingListData = function(bitReader) {
+	var sl = {};
 	
+	sl.scaling_list_pred_mode_flag = [];
+	sl.scaling_list_pred_matrix_id_delta = [];
+	sl.scaling_list_dc_coef_minus8 = [];
+	sl.ScalingList = [];
+	
+	for( var sizeId = 0; sizeId < 4; sizeId++ ) {
+		sl.scaling_list_pred_mode_flag[sizeId] = [];
+		sl.scaling_list_pred_matrix_id_delta[sizeId] = [];
+		sl.scaling_list_dc_coef_minus8[sizeId] = [];
+		sl.ScalingList[sizeId] = [];
+		
+		for(matrixId=0;matrixId<((sizeId == 3)?2:6);matrixId++) {
+			sl.scaling_list_pred_mode_flag[ sizeId ][ matrixId ] = bitReader.read(1);
+
+			if( sl.scaling_list_pred_mode_flag[ sizeId ][ matrixId ] == 0)
+				sl.scaling_list_pred_matrix_id_delta[ sizeId ][ matrixId ] = GolombReader.readU(bitReader);
+			else {
+				var nextCoef = 8
+				var coefNum = Math.min(64,(1 << (4+(sizeId << 1))))
+				
+				if( sizeId > 1 ) {
+					sl.scaling_list_dc_coef_minus8[ sizeId-2 ][ matrixId ] = GolombReader.readS(bitReader);
+					nextCoef = sl.scaling_list_dc_coef_minus8[ sizeId-2 ][ matrixId ] + 8;
+				}
+				sl.ScalingList[ sizeId ][ matrixId ] = [];
+				for( var i = 0; i < coefNum; i++) {
+					var scaling_list_delta_coef = GolombReader.readS(bitReader);
+					nextCoef = ( nextCoef + scaling_list_delta_coef + 256 ) % 256;
+					sl.ScalingList[ sizeId ][ matrixId ][ i ] = nextCoef;
+				}
+			}
+		}
+	}
+		
+	return sl;
+}
+
+PPS.read = function(bitReader) {
+	var pps = new PPS();
+	pps.pps_pic_parameter_set_id = GolombReader.readU(bitReader);
+	pps.pps_seq_parameter_set_id = GolombReader.readU(bitReader);
+	pps.dependent_slice_segments_enabled_flag = bitReader.read(1);
+	pps.output_flag_present_flag = bitReader.read(1);
+	pps.num_extra_slice_header_bits = bitReader.read(3);
+	pps.sign_data_hiding_enabled_flag = bitReader.read(1);
+	pps.cabac_init_present_flag = bitReader.read(1);
+	pps.num_ref_idx_l0_default_active_minus1 = GolombReader.readU(bitReader);
+	pps.num_ref_idx_l1_default_active_minus1 = GolombReader.readU(bitReader);
+	pps.init_qp_minus26 = GolombReader.readS(bitReader);
+	pps.constrained_intra_pred_flag = bitReader.read(1);
+	pps.transform_skip_enabled_flag = bitReader.read(1);
+	pps.cu_qp_delta_enabled_flag = bitReader.read(1);
+	
+	if( pps.cu_qp_delta_enabled_flag != 0 )
+		pps.diff_cu_qp_delta_depth = GolombReader.readU(bitReader);
+
+	pps.pps_cb_qp_offset = GolombReader.readS(bitReader);
+	pps.pps_cr_qp_offset = GolombReader.readS(bitReader);
+	pps.pps_slice_chroma_qp_offsets_present_flag = bitReader.read(1);
+	pps.weighted_pred_flag = bitReader.read(1);
+	pps.weighted_bipred_flag = bitReader.read(1);
+	pps.transquant_bypass_enabled_flag = bitReader.read(1);
+	pps.tiles_enabled_flag = bitReader.read(1);
+	pps.entropy_coding_sync_enabled_flag =bitReader.read(1);
+	
+	if( pps.tiles_enabled_flag != 0) {
+		pps.num_tile_columns_minus1= GolombReader.readU(bitReader);
+
+		pps.num_tile_rows_minus1= GolombReader.readU(bitReader);
+
+		pps.uniform_spacing_flag = bitReader.read(1);
+
+		if( pps.uniform_spacing_flag == 0) {
+			pps.column_width_minus1 = [];
+			pps.row_height_minus1 = [];
+			for( var i = 0; i < pps.num_tile_columns_minus1; i++ )
+				pps.column_width_minus1[ i ] = GolombReader.readU(bitReader);
+			
+			for( var i = 0; i < pps.num_tile_rows_minus1; i++ )
+				pps.row_height_minus1[ i ] = GolombReader.readU(bitReader);
+		}
+		pps.loop_filter_across_tiles_enabled_flag = bitReader.read(1);
+	}
+	pps.pps_loop_filter_across_slices_enabled_flag = bitReader.read(1);
+	pps.deblocking_filter_control_present_flag = bitReader.read(1);
+	if( pps.deblocking_filter_control_present_flag ) {
+		pps.deblocking_filter_override_enabled_flag = bitReader.read(1);
+		pps.pps_deblocking_filter_disabled_flag = bitReader.read(1);
+		
+		if( pps.pps_deblocking_filter_disabled_flag == 0) {
+			pps.pps_beta_offset_div2 = GolombReader.readS(bitReader);
+			pps.pps_tc_offset_div2 = GolombReader.readS(bitReader);
+		}
+	}
+	pps.pps_scaling_list_data_present_flag = bitReader.read(1);
+
+	if( pps.pps_scaling_list_data_present_flag != 0 )
+		pps.scaling_list_data = PPS.readScalingListData( bitReader );
+		
+	pps.lists_modification_present_flag = bitReader.read(1);
+
+	pps.log2_parallel_merge_level_minus2 = GolombReader.readU(bitReader);
+	pps.slice_segment_header_extension_present_flag = bitReader.read(1);
+	
+	return pps;
 }
 
 /**
@@ -101,6 +208,12 @@ BitReader.prototype.check16 = function() {
 BitReader.prototype.skip = function(n) {
 	this.deficit += n;
 	this.cur32 <<= n;
+}
+
+BitReader.prototype.read = function(n) {
+	var val = this.check16();
+	this.skip(n);
+	return (val << n) >>> 16;
 }
 
 /**
